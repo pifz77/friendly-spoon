@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KeuanganKu</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#171717}
+.app{max-width:520px;margin:auto;padding:18px}
+h1{margin:4px 0 18px;font-size:28px}
+.card{background:#fff;border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 3px 12px #0000000d}
+.balance{font-size:32px;font-weight:700;margin:8px 0}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{padding:14px;border-radius:14px;background:#f7f7f7}
+.label{font-size:13px;color:#666}.value{font-size:18px;font-weight:700;margin-top:5px}
+input,select,button{width:100%;padding:13px;border-radius:12px;border:1px solid #ddd;font-size:15px}
+input,select{background:#fff}
+button{border:0;background:#171717;color:white;font-weight:700;cursor:pointer}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form{display:grid;gap:10px}
+.transactions{display:grid;gap:8px}
+.tx{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #eee}
+.tx:last-child{border-bottom:0}
+.tx-title{font-weight:600}.tx-meta{font-size:12px;color:#777;margin-top:3px}
+.income{color:#15803d}.expense{color:#dc2626}
+.delete{width:auto;padding:7px 9px;background:#eee;color:#333;font-size:12px;margin-left:8px}
+.empty{text-align:center;color:#777;padding:18px 0}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>KeuanganKu</h1>
+
+  <div class="card">
+    <div class="label">Saldo</div>
+    <div class="balance" id="balance">Rp0</div>
+    <div class="stats">
+      <div class="stat"><div class="label">Pemasukan</div><div class="value income" id="income">Rp0</div></div>
+      <div class="stat"><div class="label">Pengeluaran</div><div class="value expense" id="expense">Rp0</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Tambah transaksi</h3>
+    <form id="form" class="form">
+      <select id="type">
+        <option value="expense">Pengeluaran</option>
+        <option value="income">Pemasukan</option>
+      </select>
+      <input id="amount" type="number" min="1" placeholder="Jumlah uang" required>
+      <input id="description" type="text" placeholder="Keterangan" required>
+      <select id="category">
+        <option>Makanan</option>
+        <option>Transportasi</option>
+        <option>Kebutuhan</option>
+        <option>Hiburan</option>
+        <option>Tagihan</option>
+        <option>Gaji</option>
+        <option>Lainnya</option>
+      </select>
+      <input id="date" type="date" required>
+      <button type="submit">Simpan transaksi</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Riwayat transaksi</h3>
+    <div id="transactions" class="transactions"></div>
+  </div>
+</div>
+
+<script>
+const KEY="keuanganku_transactions";
+let transactions=JSON.parse(localStorage.getItem(KEY)||"[]");
+
+const rupiah=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(n);
+const today=new Date().toISOString().slice(0,10);
+document.getElementById("date").value=today;
+
+function save(){localStorage.setItem(KEY,JSON.stringify(transactions));render();}
+
+function render(){
+  let income=0,expense=0;
+  transactions.forEach(t=>t.type==="income"?income+=t.amount:expense+=t.amount);
+  document.getElementById("income").textContent=rupiah(income);
+  document.getElementById("expense").textContent=rupiah(expense);
+  document.getElementById("balance").textContent=rupiah(income-expense);
+
+  const box=document.getElementById("transactions");
+  if(!transactions.length){box.innerHTML='<div class="empty">Belum ada transaksi.</div>';return;}
+  box.innerHTML=transactions.slice().reverse().map(t=>`
+    <div class="tx">
+      <div>
+        <div class="tx-title">${escapeHtml(t.description)}</div>
+        <div class="tx-meta">${escapeHtml(t.category)} • ${t.date}</div>
+      </div>
+      <div style="display:flex;align-items:center">
+        <strong class="${t.type==="income"?"income":"expense"}">${t.type==="income"?"+":"-"}${rupiah(t.amount)}</strong>
+        <button class="delete" onclick="removeTx('${t.id}')">Hapus</button>
+      </div>
+    </div>`).join("");
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+function removeTx(id){
+  transactions=transactions.filter(t=>t.id!==id);
+  save();
+}
+
+document.getElementById("form").addEventListener("submit",e=>{
+  e.preventDefault();
+  const amount=Number(document.getElementById("amount").value);
+  if(!amount||amount<1)return;
+  transactions.push({
+    id:Date.now().toString(),
+    type:document.getElementById("type").value,
+    amount,
+    description:document.getElementById("description").value.trim(),
+    category:document.getElementById("category").value,
+    date:document.getElementById("date").value
+  });
+  e.target.reset();
+  document.getElementById("date").value=today;
+  save();
+});
+render();
+</script>
+</body>
+</html>
